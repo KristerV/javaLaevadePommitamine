@@ -1,84 +1,99 @@
-import java.util.Arrays;
-import java.util.Scanner;
+import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.scene.Node;
+import javafx.scene.Scene;
+import javafx.scene.control.Label;
+import javafx.scene.image.Image;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
+import javafx.scene.paint.ImagePattern;
+import javafx.scene.shape.Rectangle;
+import javafx.stage.Stage;
 
-public class Main {
-    public static void main(String args[]) {
-        System.out.println("Alustame pommitamisega!");
-        System.out.println("Autor: Krister");
-        System.out.println("Aasta: 2016");
+public class Main extends Application {
 
-        // Laua algseis ja mängijale nähtav osa
-        int[][] lauaAlgseis = new int[9][9];
-        int[][] lauaSeis = new int[9][9];
+    // Klassi küljes muutujad, mida saab igast meetodist kätte
+    GridPane laud;                                              // Sisu määran seadistaLava() meetodis
+    int lauaPikkusLaevades = 4;                                 // Mitu laeva on laual kõrvuti
+    int laevaPikkusPx = 50;                                     // Mitu pikslit on üks laev
+    Stage mainGameStage;                                        // Mängu aken
+    Image laevaPilt = new Image("pirate.png");                  // Laeva pilt
+    ImagePattern laevaMuster = new ImagePattern(laevaPilt);     // Ja pildi musted, et saaksin ruut.setFill() kasutada
 
-        // 0 - meri
-        // 1 - laev
-        // 2- pihta saanud laev
-
-        // Sisesta lauale 1x1 laevasid
-        for (int i = 0; i < 9; i++) {
-            for (int j = 0; j < 9; j++) {
-                lauaAlgseis[i][j] = (int) (Math.random() * 1.05);
-            }
-        }
-
-        // Näita mängijale lauda
-        prindiLaud(lauaSeis);
-
-        // Uus Scanner objekt, hakkame seda kasutama kasutajalt sisendi saamiseks
-        Scanner sc = new Scanner(System.in);
-
-        // Mängi enda tsükkel. Töötab nii kaua kuni näeb break; käsku.
-        while (true) {
-            System.out.println("Kuhu tahad pommitada? Formaat: x-y");
-            String input = sc.nextLine();         // Küsi sisendit kasutajalt
-            String[] xy = input.split("-");       // poolita x-y string kaheks
-            int x = Integer.parseInt(xy[0]) - 1;  // muuda string int'iks
-            int y = Integer.parseInt(xy[1]) - 1;
-
-            int tabamus = lauaAlgseis[y][x];      // Küsi x-y positsioonilt number
-            if (tabamus == 1) {                   // Tuleb välja, et nr 1 oli seal
-                lauaAlgseis[y][x] = 2;            // Salvesta tabamus lauale
-                lauaSeis[y][x] = 2;               // Ja et kasutaja ka näeks tabamust
-                System.out.println("Pihtas!");    // Et mängijaga näeks inimese keeles ka mis juhtus.
-            } else if (tabamus == 0) {            // Juhul kui oli hoopis 0 sellel positsioonil.
-                lauaSeis[y][x] = 3;               // 3 on mööda. Seda näitame kasutajale, taustlauale pole vaja märkida
-                System.out.println("Mööda!");
-            } else if (tabamus == 2) {
-                System.out.println("Siia sa juba lasid.");
-            } else {
-                System.out.println("ERROR: kuidas sa üldse siia said?");
-            }
-
-            prindiLaud(lauaSeis);                 // Iga käik prindi ka laud välja
-
-            boolean labi = kasOnMangLabi(lauaAlgseis); // Käivita meetod, mis vaatab laua üle ja ütleb kas laevu veel on.
-            if (labi == true) {                   // Kui laevasid ei ole, siis
-                break;                            // läheb tsükkel katki ja...
-            }
-        }
-        System.out.println("Mäng on läbi!");      // programm saabki otsa
-
+    // Kust programm algab
+    @Override
+    public void start(Stage primaryStage) throws Exception {
+        seadistaLava();
+        sisestaLaevad();
+        reageeriKlikile();
     }
 
-    // private tähendab, et see meetod on kättesaadav ainult siit failist.
-    // static tähendab, et meetodi välja kutsumiseks ei pea eraldi Objekti looma.
-    // boolean tähendab, et meetod peab lõpuks return'ima booleani tulemuseks
-    // meetod võtab sisendiks maatriksi - ja me nimetame selle maatriksi "laud" muutujaks.
-    private static boolean kasOnMangLabi(int[][] laud) {
-        for (int i = 0; i < 9; i++) {
-            for (int j = 0; j < 9; j++) {
-                if (laud[j][i] == 1) {
-                    return false;
+    // Määrab mis juhtub, kui lauale klikitakse
+    private void reageeriKlikile() {
+        laud.setOnMouseClicked(event -> {                       // Juhtum. Ehk klikile reageerimine.
+            Rectangle ruut = (Rectangle) event.getTarget();     // getTarget saab laualt Rectangle kätte
+            String tyyp = ruut.getId();                         // Mis on ruudu ID?
+            if (tyyp.equals("meri")) {                          // Kui ruut on meri, siis
+                ruut.setFill(Color.DARKBLUE);                   // värvi lihtsalt tumedamaks
+            } else if (tyyp.equals("laev")) {                   // Kui ruut on laev, siis
+                ruut.setFill(laevaMuster);                      // näita laeva pilti ja
+                ruut.setId("põhjas");                           // muuda ID ära
+            }
+
+            if (!laevasidOnAlles()) {                           // Kui laevasid alles ei ole, siis
+                gameover();                                     // Käivita gameover meetod
+            }
+        });
+    }
+
+    // Mis juhtub, kui mäng on läbi
+    private void gameover() {
+        mainGameStage.close();                                  // Pane mängu aken kinni
+        StackPane stack = new StackPane();                      // Loo uus aken teatega
+        Label go = new Label("Võitsid!");
+        stack.getChildren().add(go);
+        Scene scene = new Scene(stack, 300, 150);
+        Stage goStage = new Stage();
+        goStage.setScene(scene);
+        goStage.show();                                         // ja näita seda akent.
+    }
+
+    // Kas laual on vähemalt üks laev veel alles?
+    private boolean laevasidOnAlles() {
+        for (Node ruut : laud.getChildren()) {                  // iga laua lapse kohta võta välja ruut
+            if (ruut.getId().equals("laev")) {                  // kui ruudu ID on laev, siis
+                return true;                                    // tagasta "jah"
+            }
+        }
+        return false;                                           // Kui ühtegi laeva ei ole, tagasta "ei"
+    }
+
+    // Aseta tühjale GridPane lauale laevad
+    private void sisestaLaevad() {
+        for (int i = 0; i < lauaPikkusLaevades; i++) {          // Käime iga x-y koordinaadi laual läbi
+            for (int j = 0; j < lauaPikkusLaevades; j++) {
+                // Siia tulen 9 * 9 korda
+                Rectangle ruut = new Rectangle(laevaPikkusPx, laevaPikkusPx); // Loon uue ruudu, ehk laev/meri
+                int rand = (int) (Math.random() * 1.3);         // Tõenäosus, kas tuleb laev või meri
+                if (rand == 1) {
+                    ruut.setId("laev");                         // ID kasutajale ei näidata
+                } else {                                        // aga koodis saan küsida selle väärtust
+                    ruut.setId("meri");
                 }
+                ruut.setFill(Color.BLUE);                       // Värvin kogu laua esiteks siniseks
+                laud.add(ruut, i, j);                           // Lisan ruutu GridPane sisse koordinaatidel i-j
             }
         }
-        return true;
     }
 
-    public static void prindiLaud(int[][] prinditavLaud) {
-        for (int i = 0; i < 9; i++) {
-            System.out.println(Arrays.toString(prinditavLaud[i]));
-        }
+    // Seadista aken ja muud JavaFX vajalikud asjad
+    private void seadistaLava() {
+        laud = new GridPane();
+        Scene scene = new Scene(laud, lauaPikkusLaevades * laevaPikkusPx, lauaPikkusLaevades * laevaPikkusPx);
+        mainGameStage = new Stage();
+        scene.setFill(Color.DARKBLUE);
+        mainGameStage.setScene(scene);
+        mainGameStage.show();
     }
 }
